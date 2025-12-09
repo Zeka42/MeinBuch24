@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   BookOpen, 
@@ -31,8 +30,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
                 <Heart size={24} fill="currentColor" />
               </div>
               <div>
-                <span className="text-xl font-bold text-slate-800 block leading-none">Herzensbuch</span>
-                <span className="text-xs text-slate-500 uppercase tracking-widest">Platform</span>
+                <span className="text-xl font-bold text-slate-800 block leading-none">meinbuch24.de</span>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -198,7 +196,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onRegister })
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
                 <span className="text-brand-600 font-bold uppercase tracking-wider text-sm">Exklusive Technologie</span>
-                <h2 className="text-3xl font-bold text-slate-900 mt-2">Die Herzensbuch Plattform</h2>
+                <h2 className="text-3xl font-bold text-slate-900 mt-2">Die meinbuch24.de Plattform</h2>
                 <p className="text-slate-600 mt-4">Unsere eigens entwickelte Software garantiert deinen Erfolg.</p>
             </div>
             

@@ -180,7 +180,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode, currentUser: User |
     {/* Sidebar */}
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col fixed h-full z-10">
       <div className="p-6">
-        <h2 className="text-xl font-bold text-white tracking-tight">Herzensbuch</h2>
+        <h2 className="text-xl font-bold text-white tracking-tight">meinbuch24.de</h2>
       </div>
       <nav className="flex-1 px-4 space-y-2">
         <button 
@@ -864,7 +864,7 @@ const LoginView = ({ authMode, setAuthMode, email, setEmail, password, setPasswo
       </button>
 
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-slate-800 mb-2">Herzensbuch</h1>
+        <h1 className="text-3xl font-bold text-slate-800 mb-2">meinbuch24.de</h1>
         <p className="text-slate-500">Dein Weg zum Bestseller</p>
       </div>
 

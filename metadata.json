@@ -1,5 +1,5 @@
 {
-  "name": "Herzensbuch Platform",
+  "name": "meinbuch24.de",
   "description": "A professional book writing platform with AI assistance and editorial workflow management.",
   "requestFramePermissions": [
     "microphone"
