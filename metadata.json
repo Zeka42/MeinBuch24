@@ -1,0 +1,7 @@
+{
+  "name": "Herzensbuch Platform",
+  "description": "A professional book writing platform with AI assistance and editorial workflow management.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
