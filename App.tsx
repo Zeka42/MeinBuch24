@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Book as BookType } from './types';
 import { MOCK_USERS, MOCK_BOOKS } from './constants';
@@ -444,16 +443,15 @@ const AuthorsView = ({ currentUser, currentView, setCurrentView, handleLogout }:
         setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
 
         try {
-            // Use setDoc with merge: true to be safe against missing documents
-            await setDoc(doc(db, "users", user.id), { role: newRole }, { merge: true });
+            await updateDoc(doc(db, "users", user.id), { role: newRole });
         } catch (error: any) {
+            console.error("Failed to update role", error);
+            // Revert
+            setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: user.role } : u));
             if (error.code === 'permission-denied') {
-                console.warn("Backend permission denied for role change. Keeping local change.");
+                 alert("Keine Berechtigung: Nur Administratoren dürfen Rollen ändern.");
             } else {
-                console.error("Failed to update role", error);
-                // Revert
-                setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: user.role } : u));
-                alert("Fehler beim Aktualisieren der Rolle.");
+                 alert("Fehler beim Speichern: " + error.message);
             }
         }
     };
@@ -465,15 +463,15 @@ const AuthorsView = ({ currentUser, currentView, setCurrentView, handleLogout }:
         setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: newStatus } : u));
 
         try {
-            await setDoc(doc(db, "users", user.id), { isApproved: newStatus }, { merge: true });
+            await updateDoc(doc(db, "users", user.id), { isApproved: newStatus });
         } catch (error: any) {
+            console.error("Failed to update approval", error);
+            // Revert
+            setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: user.isApproved } : u));
             if (error.code === 'permission-denied') {
-                console.warn("Backend permission denied for approval. Keeping local change.");
+                 alert("Keine Berechtigung: Nur Administratoren dürfen diesen Status ändern.");
             } else {
-                console.error("Failed to update approval", error);
-                // Revert
-                setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: user.isApproved } : u));
-                alert("Fehler beim Aktualisieren des Status.");
+                 alert("Fehler beim Speichern: " + error.message);
             }
         }
     };
@@ -559,7 +557,7 @@ const AuthorsView = ({ currentUser, currentView, setCurrentView, handleLogout }:
                                 }`}
                                 title={user.isApproved ? "Benutzer sperren" : "Benutzer freigeben"}
                              >
-                                 {user.isApproved ? 'Details' : 'Freigeben'}
+                                 {user.isApproved ? 'Sperren' : 'Freigeben'}
                              </button>
                          </div>
                       </td>
@@ -1073,7 +1071,7 @@ function App() {
                 
                 if (user.email === 'a.aydin1444@gmail.com' && data.role !== 'employee') {
                     try {
-                        await updateDoc(userRef, { role: 'employee', isApproved: true });
+                        await setDoc(userRef, { role: 'employee', isApproved: true }, { merge: true });
                         data.role = 'employee';
                         data.isApproved = true;
                     } catch (e) {}
@@ -1105,7 +1103,7 @@ function App() {
                     isApproved: isApproved
                 };
                 
-                try { await setDoc(userRef, newUser); } catch (e) {}
+                try { await setDoc(userRef, newUser, { merge: true }); } catch (e) {}
                 
                 appUser = {
                     id: user.uid,
