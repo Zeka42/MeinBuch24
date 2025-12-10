@@ -1,42 +1,32 @@
-/// <reference types="vite/client" />
+
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 
-// Environment variables must be set in your deployment platform (Coolify)
-// Vite replaces import.meta.env.VITE_... statically at build time.
-
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyCVa3EboIsHKxPbFeQRutWqIvEYCtscp2g",
+  authDomain: "bucherstellung-511c9.firebaseapp.com",
+  projectId: "bucherstellung-511c9",
+  storageBucket: "bucherstellung-511c9.firebasestorage.app",
+  messagingSenderId: "638041735374",
+  appId: "1:638041735374:web:7ca6f3b560174b1eb8909f",
+  measurementId: "G-T4SFF1ST4Q"
 };
 
 // Initialize Modular App
 let app;
-try {
-    if (getApps().length > 0) {
-      app = getApp();
-    } else {
-      app = initializeApp(firebaseConfig);
-    }
-} catch (e) {
-    console.error("Firebase Initialization Error. Check your Environment Variables.", e);
+if (getApps().length > 0) {
+  app = getApp();
+} else {
+  app = initializeApp(firebaseConfig);
 }
 
-// Export services, ensuring app is initialized
-export const db = app ? getFirestore(app) : {} as any;
-export const storage = app ? getStorage(app) : {} as any;
-export const auth = app ? getAuth(app) : {} as any;
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+export const auth = getAuth(app);
 
-if (auth) {
-    // Explicitly set persistence to local to avoid session issues
-    setPersistence(auth, browserLocalPersistence).catch((error) => {
-      console.error("Firebase Persistence Error:", error);
-    });
-}
+// Explicitly set persistence to local to avoid session issues
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error("Firebase Persistence Error:", error);
+});
