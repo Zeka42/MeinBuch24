@@ -41,7 +41,11 @@ import {
   UserCheck,
   UserX,
   Lock,
-  Unlock
+  Unlock,
+  Filter,
+  Ban,
+  MoreHorizontal,
+  Check
 } from 'lucide-react';
 
 export {
@@ -86,5 +90,9 @@ export {
   UserCheck,
   UserX,
   Lock,
-  Unlock
+  Unlock,
+  Filter,
+  Ban,
+  MoreHorizontal,
+  Check
 };

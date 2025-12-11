@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Book as BookType } from './types';
 import { MOCK_USERS, MOCK_BOOKS } from './constants';
 import { BookEditor } from './components/BookEditor';
@@ -37,7 +38,11 @@ import {
   ShieldCheck,
   ShieldAlert,
   UserCheck,
-  UserX
+  UserX,
+  Filter,
+  Ban,
+  Check,
+  MoreHorizontal
 } from './components/Icons';
 
 type View = 'landing' | 'login' | 'customer-dash' | 'employee-dash' | 'editor' | 'settings' | 'authors';
@@ -393,6 +398,8 @@ const AuthorsView = ({ currentUser, currentView, setCurrentView, handleLogout }:
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'employee' | 'blocked'>('all');
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -427,138 +434,252 @@ const AuthorsView = ({ currentUser, currentView, setCurrentView, handleLogout }:
         fetchUsers();
     }, []);
 
-    const toggleRole = async (user: User) => {
+    const toggleRole = async (user: User, e: React.MouseEvent) => {
+        e.stopPropagation();
         if (user.id === currentUser?.id) {
             alert("Du kannst deine eigene Rolle nicht ändern.");
             return;
         }
-        const newRole = user.role === 'customer' ? 'employee' : 'customer';
-        const confirmMsg = newRole === 'employee' 
-            ? `Soll ${user.name} wirklich zum Mitarbeiter befördert werden?` 
-            : `Soll ${user.name} wieder zum Autor (Kunde) herabgestuft werden?`;
         
-        if (!window.confirm(confirmMsg)) return;
+        const newRole = user.role === 'customer' ? 'employee' : 'customer';
+        
+        if (newRole === 'employee') {
+             if (!window.confirm(`Soll ${user.name} wirklich zum Mitarbeiter (Admin-Rechte) befördert werden?`)) return;
+        }
 
-        // Optimistic Update
+        const previousRole = user.role;
         setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
 
         try {
-            await updateDoc(doc(db, "users", user.id), { role: newRole });
+            await setDoc(doc(db, "users", user.id), { role: newRole }, { merge: true });
         } catch (error: any) {
             console.error("Failed to update role", error);
-            // Revert
-            setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: user.role } : u));
-            if (error.code === 'permission-denied') {
-                 alert("Keine Berechtigung: Nur Administratoren dürfen Rollen ändern.");
-            } else {
-                 alert("Fehler beim Speichern: " + error.message);
-            }
+            setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: previousRole } : u));
+            alert("Fehler beim Speichern der Rolle: " + error.message);
         }
     };
 
-    const toggleApproval = async (user: User) => {
+    const toggleApproval = async (user: User, e: React.MouseEvent) => {
+        e.stopPropagation();
         const newStatus = !user.isApproved;
         
-        // Optimistic Update
+        if (user.isApproved) {
+             if (!window.confirm(`Soll der Account von ${user.name} wirklich gesperrt werden?`)) return;
+        }
+        
+        const previousStatus = user.isApproved;
         setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: newStatus } : u));
 
         try {
-            await updateDoc(doc(db, "users", user.id), { isApproved: newStatus });
+            await setDoc(doc(db, "users", user.id), { isApproved: newStatus }, { merge: true });
         } catch (error: any) {
             console.error("Failed to update approval", error);
-            // Revert
-            setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: user.isApproved } : u));
-            if (error.code === 'permission-denied') {
-                 alert("Keine Berechtigung: Nur Administratoren dürfen diesen Status ändern.");
-            } else {
-                 alert("Fehler beim Speichern: " + error.message);
-            }
+            setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: previousStatus } : u));
+            alert("Fehler beim Speichern des Status: " + error.message);
         }
     };
 
+    const filteredUsers = useMemo(() => {
+        return allUsers.filter(user => {
+            const matchesSearch = 
+                user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                user.email.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            if (!matchesSearch) return false;
+
+            if (filterStatus === 'employee') return user.role === 'employee';
+            if (filterStatus === 'pending') return user.isApproved === false;
+            if (filterStatus === 'blocked') return user.isApproved === false; 
+            
+            return true;
+        });
+    }, [allUsers, searchTerm, filterStatus]);
+
+    const stats = useMemo(() => ({
+        total: allUsers.length,
+        employees: allUsers.filter(u => u.role === 'employee').length,
+        pending: allUsers.filter(u => !u.isApproved).length
+    }), [allUsers]);
+
     return (
       <DashboardLayout currentUser={currentUser} currentView={currentView} setCurrentView={setCurrentView} handleLogout={handleLogout}>
-         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">Autoren</h1>
-          <p className="text-slate-500">Übersicht aller registrierten Autoren.</p>
+         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-800">Autoren Verwaltung</h1>
+                <p className="text-slate-500">Übersicht und Rechteverwaltung aller Benutzer.</p>
+            </div>
+            {/* Stats Cards Small */}
+            <div className="flex space-x-4">
+                <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Gesamt</span>
+                    <span className="text-xl font-bold text-slate-800">{stats.total}</span>
+                </div>
+                <div className="bg-purple-50 px-4 py-2 rounded-lg border border-purple-100 shadow-sm flex flex-col items-center">
+                    <span className="text-[10px] uppercase font-bold text-purple-400">Team</span>
+                    <span className="text-xl font-bold text-purple-700">{stats.employees}</span>
+                </div>
+                <div className="bg-amber-50 px-4 py-2 rounded-lg border border-amber-100 shadow-sm flex flex-col items-center">
+                    <span className="text-[10px] uppercase font-bold text-amber-400">Ausstehend</span>
+                    <span className="text-xl font-bold text-amber-700">{stats.pending}</span>
+                </div>
+            </div>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden p-6">
+
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
+           {/* Toolbar */}
+           <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50">
+               {/* Search */}
+               <div className="relative w-full md:w-80">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                   <input 
+                        type="text" 
+                        placeholder="Suchen nach Name oder E-Mail..." 
+                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                   />
+               </div>
+
+               {/* Filters */}
+               <div className="flex space-x-1 bg-slate-200 p-1 rounded-lg">
+                   {(['all', 'pending', 'employee'] as const).map(f => (
+                       <button
+                           key={f}
+                           onClick={() => setFilterStatus(f)}
+                           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                               filterStatus === f 
+                               ? 'bg-white text-slate-800 shadow-sm' 
+                               : 'text-slate-500 hover:text-slate-700 hover:bg-slate-300/50'
+                           }`}
+                       >
+                           {f === 'all' && 'Alle'}
+                           {f === 'pending' && 'Wartet auf Freigabe'}
+                           {f === 'employee' && 'Mitarbeiter'}
+                       </button>
+                   ))}
+               </div>
+           </div>
+
+           {/* Table */}
            {loading ? (
-             <div className="p-10 text-center text-slate-400">Lade Benutzer...</div>
+             <div className="flex-1 flex items-center justify-center text-slate-400">
+                 <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mb-2"></div>
+                    Lade Benutzer...
+                 </div>
+             </div>
            ) : error ? (
-             <div className="p-10 text-center text-red-500">{error}</div>
+             <div className="p-10 text-center text-red-500 flex-1 flex items-center justify-center flex-col">
+                 <ShieldAlert size={32} className="mb-2" />
+                 {error}
+             </div>
            ) : (
-             <div className="overflow-x-auto">
+             <div className="overflow-x-auto flex-1">
              <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-500 font-medium">
+              <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 rounded-l-lg">Name</th>
-                  <th className="px-6 py-4">Bücher</th>
-                  <th className="px-6 py-4">Dabei seit</th>
-                  <th className="px-6 py-4 rounded-r-lg text-right">Aktion</th>
+                  <th className="px-6 py-4">Benutzer</th>
+                  <th className="px-6 py-4">Status & Rolle</th>
+                  <th className="px-6 py-4">Statistik</th>
+                  <th className="px-6 py-4 text-right">Verwaltung</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                 {allUsers.map(user => (
-                   <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                 {filteredUsers.length === 0 ? (
+                     <tr>
+                         <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
+                             Keine Benutzer gefunden.
+                         </td>
+                     </tr>
+                 ) : filteredUsers.map(user => (
+                   <tr key={user.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4">
                          <div className="flex items-center space-x-4">
                             {user.avatarUrl ? (
-                                <img src={user.avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover bg-slate-200 shadow-sm" />
+                                <img src={user.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover bg-slate-200 shadow-sm border border-slate-100" />
                             ) : (
-                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shadow-sm">
-                                    <UserIcon size={24} />
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shadow-sm border border-slate-100">
+                                    <UserIcon size={20} />
                                 </div>
                             )}
                             <div>
-                                <div className="font-semibold text-slate-800 text-base">{user.name}</div>
-                                <div className="text-sm text-slate-500">{user.email}</div>
-                                <div className="mt-1 flex space-x-2">
-                                    {user.role === 'employee' && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 uppercase tracking-wide">
-                                            Mitarbeiter
-                                        </span>
-                                    )}
-                                    {!user.isApproved && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wide">
-                                            Wartet auf Freigabe
-                                        </span>
-                                    )}
-                                </div>
+                                <div className="font-bold text-slate-800 text-sm">{user.name}</div>
+                                <div className="text-xs text-slate-500 font-mono">{user.email}</div>
+                                <div className="text-[10px] text-slate-400 mt-0.5">ID: {user.id.substring(0, 8)}...</div>
                             </div>
                          </div>
                       </td>
-                      <td className="px-6 py-4 text-slate-600 font-medium">
-                         {user.bookCount}
+                      <td className="px-6 py-4">
+                          <div className="flex flex-col items-start space-y-2">
+                             {/* Role Badge */}
+                             {user.role === 'employee' ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                    <ShieldCheck size={12} className="mr-1" /> Mitarbeiter
+                                </span>
+                             ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                    Autor
+                                </span>
+                             )}
+
+                             {/* Status Badge */}
+                             {user.isApproved ? (
+                                 <span className="inline-flex items-center text-xs text-green-600 font-medium">
+                                     <CheckCircle size={12} className="mr-1" /> Aktiv
+                                 </span>
+                             ) : (
+                                 <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200 animate-pulse">
+                                     <Clock size={12} className="mr-1" /> Wartet auf Freigabe
+                                 </span>
+                             )}
+                          </div>
                       </td>
-                      <td className="px-6 py-4 text-slate-500">
-                         {user.joinedAt || '-'}
+                      <td className="px-6 py-4">
+                         <div className="text-slate-600 text-xs">
+                             <div className="flex items-center mb-1" title="Anzahl Bücher">
+                                 <BookOpen size={12} className="mr-2 text-slate-400" /> 
+                                 <span className="font-semibold">{user.bookCount}</span> Bücher
+                             </div>
+                             <div className="flex items-center" title="Beigetreten am">
+                                 <Clock size={12} className="mr-2 text-slate-400" /> 
+                                 {user.joinedAt || 'Unbekannt'}
+                             </div>
+                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                         <div className="flex items-center justify-end space-x-3">
-                             {/* Role Toggle Button */}
-                             <button 
-                                onClick={() => toggleRole(user)}
-                                className={`text-sm font-medium transition-colors ${user.role === 'employee' ? 'text-purple-600 hover:text-purple-800' : 'text-slate-400 hover:text-purple-600'}`}
-                                title={user.role === 'employee' ? "Zum Autor machen" : "Zum Mitarbeiter befördern"}
-                             >
-                                 {user.role === 'employee' ? 'Degradieren' : 'Befördern'}
-                             </button>
+                         <div className="flex items-center justify-end space-x-2 opacity-100">
                              
-                             <span className="text-slate-200">|</span>
-
-                             {/* Approval Toggle Button */}
+                             {/* ACTION: Promote / Demote */}
                              <button 
-                                onClick={() => toggleApproval(user)}
-                                className={`text-sm font-medium transition-colors ${
-                                    user.isApproved
-                                    ? 'text-blue-500 hover:text-red-600' 
-                                    : 'text-green-600 hover:text-green-700'
+                                onClick={(e) => toggleRole(user, e)}
+                                className={`p-2 rounded-lg border transition-all ${
+                                    user.role === 'employee' 
+                                    ? 'border-purple-200 text-purple-600 hover:bg-purple-50' 
+                                    : 'border-slate-200 text-slate-400 hover:text-purple-600 hover:border-purple-200 hover:bg-purple-50'
                                 }`}
-                                title={user.isApproved ? "Benutzer sperren" : "Benutzer freigeben"}
+                                title={user.role === 'employee' ? "Zum Autor degradieren" : "Zum Mitarbeiter befördern"}
                              >
-                                 {user.isApproved ? 'Sperren' : 'Freigeben'}
+                                 {user.role === 'employee' ? <ShieldCheck size={16} /> : <Shield size={16} />}
                              </button>
+
+                             {/* ACTION: Approve / Block */}
+                             {user.isApproved ? (
+                                 <button 
+                                     onClick={(e) => toggleApproval(user, e)}
+                                     className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all"
+                                     title="Benutzer sperren"
+                                 >
+                                     <Ban size={16} />
+                                 </button>
+                             ) : (
+                                 <button 
+                                     onClick={(e) => toggleApproval(user, e)}
+                                     className="flex items-center px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 shadow-sm transition-all text-xs font-bold"
+                                     title="Benutzer freigeben"
+                                 >
+                                     <Check size={14} className="mr-1.5" /> Freigeben
+                                 </button>
+                             )}
                          </div>
                       </td>
                    </tr>
@@ -567,6 +688,9 @@ const AuthorsView = ({ currentUser, currentView, setCurrentView, handleLogout }:
              </table>
              </div>
            )}
+           <div className="bg-slate-50 p-3 border-t border-slate-200 text-xs text-center text-slate-400">
+               Zeige {filteredUsers.length} von {allUsers.length} Benutzern
+           </div>
         </div>
       </DashboardLayout>
     );
