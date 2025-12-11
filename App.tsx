@@ -443,17 +443,20 @@ const AuthorsView = ({ currentUser, currentView, setCurrentView, handleLogout }:
         
         const newRole = user.role === 'customer' ? 'employee' : 'customer';
         
+        // Confirmation only for promotion to prevent accidental clicks
         if (newRole === 'employee') {
              if (!window.confirm(`Soll ${user.name} wirklich zum Mitarbeiter (Admin-Rechte) befördert werden?`)) return;
         }
 
         const previousRole = user.role;
+        // Optimistic Update
         setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
 
         try {
-            await setDoc(doc(db, "users", user.id), { role: newRole }, { merge: true });
+            await updateDoc(doc(db, "users", user.id), { role: newRole });
         } catch (error: any) {
             console.error("Failed to update role", error);
+            // Revert
             setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: previousRole } : u));
             alert("Fehler beim Speichern der Rolle: " + error.message);
         }
@@ -463,17 +466,20 @@ const AuthorsView = ({ currentUser, currentView, setCurrentView, handleLogout }:
         e.stopPropagation();
         const newStatus = !user.isApproved;
         
+        // Only confirm for banning (setting to false), approving should be instant and easy
         if (user.isApproved) {
              if (!window.confirm(`Soll der Account von ${user.name} wirklich gesperrt werden?`)) return;
         }
         
         const previousStatus = user.isApproved;
+        // Optimistic Update
         setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: newStatus } : u));
 
         try {
-            await setDoc(doc(db, "users", user.id), { isApproved: newStatus }, { merge: true });
+            await updateDoc(doc(db, "users", user.id), { isApproved: newStatus });
         } catch (error: any) {
             console.error("Failed to update approval", error);
+            // Revert
             setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: previousStatus } : u));
             alert("Fehler beim Speichern des Status: " + error.message);
         }
